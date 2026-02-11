@@ -4,6 +4,10 @@ import { prisma } from "../../../lib/prisma";
 import { Product } from "../../../../generated/prisma/client";
 
 const createProduct = async (payload: Product) => {
+    if (payload.stock < 0) {
+        throw new ApiError(httpStatus.BAD_REQUEST, "Stock cannot be negative");
+    }
+
     const isNameExist = await prisma.product.findUnique({
         where: { name: payload.name },
     });
@@ -42,6 +46,10 @@ const updateProduct = async (id: string, payload: Partial<Product>) => {
     });
     if (!isProductExist) {
         throw new ApiError(httpStatus.NOT_FOUND, "Product not found");
+    }
+
+    if (payload.stock !== undefined && payload.stock < 0) {
+        throw new ApiError(httpStatus.BAD_REQUEST, "Stock cannot be negative");
     }
 
     if (payload.name) {

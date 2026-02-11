@@ -3,8 +3,9 @@ import { Router } from "express";
 
 const moduleRoutes: [string, Router][] = [
   ["/auth", modules.authRoutes],
-  // ["/user", modules.userRoutes],
-  // ["/product", modules.productRoutes],
+  ["/user", modules.userRoutes],
+  ["/product", modules.productRoutes],
+  ["/cart", modules.cartRoutes],
   // ["/order", modules.orderRoutes],
   // ["/payment", modules.paymentRoutes],
 ];
