@@ -6,7 +6,7 @@ const moduleRoutes: [string, Router][] = [
   ["/user", modules.userRoutes],
   ["/product", modules.productRoutes],
   ["/cart", modules.cartRoutes],
-  // ["/order", modules.orderRoutes],
+  ["/order", modules.orderRoutes],
   // ["/payment", modules.paymentRoutes],
 ];
 
