@@ -5,13 +5,36 @@ import { sendResponse } from "../../../shared/utils/sendResponse";
 import { OrderService } from "./order.service";
 import { IJWTPayload } from "../../../interface/declare";
 
-const createOrder = catchAsync(async (req: Request, res: Response) => {
+const createOrderWithPayment = catchAsync(async (req: Request, res: Response) => {
     const user = req.user as IJWTPayload;
-    const result = await OrderService.createOrder(user.userId);
+    const result = await OrderService.createOrderWithPayment(user.userId, user.email);
     sendResponse(res, {
         statusCode: httpStatus.CREATED,
         success: true,
-        message: "Order placed successfully",
+        message: "Order placed successfully. Please complete your payment.",
+        data: result,
+    });
+});
+
+const createOrderWithPayLater = catchAsync(async (req: Request, res: Response) => {
+    const user = req.user as IJWTPayload;
+    const result = await OrderService.createOrderWithPayLater(user.userId, user.email);
+    sendResponse(res, {
+        statusCode: httpStatus.CREATED,
+        success: true,
+        message: "Order placed successfully. You can complete your payment later.",
+        data: result,
+    });
+});
+
+const initiatePayment = catchAsync(async (req: Request, res: Response) => {
+    const user = req.user as IJWTPayload;
+    const { id } = req.params;
+    const result = await OrderService.initiatePayment(user.userId, user.email, id as string);
+    sendResponse(res, {
+        statusCode: httpStatus.OK,
+        success: true,
+        message: "Payment initiated successfully",
         data: result,
     });
 });
@@ -73,7 +96,9 @@ const cancelOrder = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const OrderController = {
-    createOrder,
+    createOrderWithPayment,
+    createOrderWithPayLater,
+    initiatePayment,
     getMyOrders,
     getSingleOrder,
     getAllOrders,

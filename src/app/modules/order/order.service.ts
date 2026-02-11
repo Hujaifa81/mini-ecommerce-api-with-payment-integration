@@ -1,94 +1,169 @@
 import httpStatus from "http-status-codes";
+import { Prisma } from "../../../../generated/prisma/client";
 import ApiError from "../../errors/ApiError";
 import { prisma } from "../../../lib/prisma";
-import { OrderStatus } from "../../../../generated/prisma/enums";
+import { OrderStatus, PaymentStatus } from "../../../../generated/prisma/enums";
+import { PaymentService } from "../payment/payment.service";
 
-const createOrder = async (userId: string) => {
-    return await prisma.$transaction(async (tx) => {
-        const cart = await tx.cart.findUnique({
-            where: { userId },
-            include: {
-                items: {
-                    include: {
-                        product: true,
-                    },
+const createBaseOrder = async (tx: Prisma.TransactionClient, userId: string) => {
+    const cart = await tx.cart.findUnique({
+        where: { userId },
+        include: {
+            items: {
+                include: {
+                    product: true,
                 },
             },
-        });
+        },
+    });
 
-        if (!cart || cart.items.length === 0) {
-            throw new ApiError(httpStatus.BAD_REQUEST, "Your cart is empty");
-        }
+    if (!cart || cart.items.length === 0) {
+        throw new ApiError(httpStatus.BAD_REQUEST, "Your cart is empty");
+    }
 
-        const productIds = cart.items.map((item) => item.productId);
+    const productIds = cart.items.map((item: { productId: string }) => item.productId);
 
-        await tx.$queryRawUnsafe(`
-      SELECT * FROM products WHERE id IN (${productIds.map((id) => `'${id}'`).join(",")}) FOR UPDATE
+    await tx.$queryRawUnsafe(`
+        SELECT * FROM products WHERE id IN (${productIds.map((id: string) => `'${id}'`).join(",")}) FOR UPDATE
     `);
 
-        const products = await tx.product.findMany({
-            where: {
-                id: { in: productIds },
-            },
-        });
+    const products = await tx.product.findMany({
+        where: {
+            id: { in: productIds },
+        },
+    });
 
-        let totalAmount = 0;
-        const orderItemsData = [];
+    let totalAmount = 0;
+    const orderItemsData = [];
 
-        for (const cartItem of cart.items) {
-            const product = products.find((p) => p.id === cartItem.productId);
+    for (const cartItem of cart.items) {
+        const product = products.find((p: { id: string }) => p.id === cartItem.productId);
 
-            if (!product) {
-                throw new ApiError(httpStatus.NOT_FOUND, `Product ${cartItem.productId} not found`);
-            }
-
-            if (product.stock < cartItem.quantity) {
-                throw new ApiError(
-                    httpStatus.BAD_REQUEST,
-                    `Insufficient stock for product: ${product.name}. Available: ${product.stock}, Requested: ${cartItem.quantity}`
-                );
-            }
-
-            const itemPrice = Number(product.price);
-            totalAmount += itemPrice * cartItem.quantity;
-
-            orderItemsData.push({
-                productId: cartItem.productId,
-                quantity: cartItem.quantity,
-                price: itemPrice,
-            });
-
-            await tx.product.update({
-                where: { id: product.id },
-                data: {
-                    stock: {
-                        decrement: cartItem.quantity,
-                    },
-                },
-            });
+        if (!product) {
+            throw new ApiError(httpStatus.NOT_FOUND, `Product ${cartItem.productId} not found`);
         }
 
-        const order = await tx.order.create({
-            data: {
-                userId,
-                totalAmount,
-                status: OrderStatus.PENDING,
-                items: {
-                    create: orderItemsData,
-                },
-            },
-            include: {
-                items: true,
-            },
+        if (product.stock < cartItem.quantity) {
+            throw new ApiError(
+                httpStatus.BAD_REQUEST,
+                `Insufficient stock for product: ${product.name}. Available: ${product.stock}, Requested: ${cartItem.quantity}`
+            );
+        }
+
+        const itemPrice = Number(product.price);
+        totalAmount += itemPrice * cartItem.quantity;
+
+        orderItemsData.push({
+            productId: cartItem.productId,
+            quantity: cartItem.quantity,
+            price: itemPrice,
         });
 
-        await tx.cartItem.deleteMany({
-            where: { cartId: cart.id },
+        await tx.product.update({
+            where: { id: product.id },
+            data: {
+                stock: {
+                    decrement: cartItem.quantity,
+                },
+            },
+        });
+    }
+
+    const order = await tx.order.create({
+        data: {
+            userId,
+            totalAmount,
+            status: OrderStatus.PENDING,
+            items: {
+                create: orderItemsData,
+            },
+        },
+        include: {
+            items: true,
+        },
+    });
+
+    await tx.cartItem.deleteMany({
+        where: { cartId: cart.id },
+    });
+
+    return { order, totalAmount };
+};
+
+const createOrderWithPayment = async (userId: string, userEmail: string) => {
+    const result = await prisma.$transaction(async (tx) => {
+        const { order, totalAmount } = await createBaseOrder(tx, userId);
+
+        await tx.payment.create({
+            data: {
+                orderId: order.id,
+                amount: totalAmount,
+                status: PaymentStatus.PENDING,
+                paymentMethod: "stripe",
+            },
         });
 
         return order;
     });
+
+    const paymentUrl = await PaymentService.createPaymentSession({
+        id: result.id,
+        totalAmount: Number(result.totalAmount),
+        userEmail,
+    });
+
+    return { paymentUrl, order: result };
 };
+
+const createOrderWithPayLater = async (userId: string, userEmail: string) => {
+    return await prisma.$transaction(async (tx) => {
+        const { order } = await createBaseOrder(tx, userId);
+        return order;
+    });
+};
+
+const initiatePayment = async (userId: string, userEmail: string, orderId: string) => {
+    const order = await prisma.order.findUnique({
+        where: { id: orderId, userId },
+        include: { payment: true },
+    });
+
+    if (!order) {
+        throw new ApiError(httpStatus.NOT_FOUND, "Order not found");
+    }
+
+    if (order.payment && order.payment.status === PaymentStatus.COMPLETED) {
+        throw new ApiError(httpStatus.BAD_REQUEST, "Order is already paid");
+    }
+
+    if (order.payment) {
+        if (order.payment.status === PaymentStatus.FAILED) {
+            await prisma.payment.update({
+                where: { id: order.payment.id },
+                data: { status: PaymentStatus.PENDING },
+            });
+        }
+    } else {
+        await prisma.payment.create({
+            data: {
+                orderId,
+                amount: order.totalAmount,
+                status: PaymentStatus.PENDING,
+                paymentMethod: "stripe",
+            },
+        });
+    }
+
+    const paymentUrl = await PaymentService.createPaymentSession({
+        id: order.id,
+        totalAmount: Number(order.totalAmount),
+        userEmail: userEmail,
+    });
+
+    return { paymentUrl };
+};
+
+
 
 const getMyOrders = async (userId: string) => {
     return await prisma.order.findMany({
@@ -198,7 +273,9 @@ const cancelOrder = async (orderId: string) => {
 };
 
 export const OrderService = {
-    createOrder,
+    createOrderWithPayment,
+    createOrderWithPayLater,
+    initiatePayment,
     getMyOrders,
     getSingleOrder,
     getAllOrders,

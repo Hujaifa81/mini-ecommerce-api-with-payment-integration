@@ -10,8 +10,20 @@ const router = Router();
 router.post(
     "/",
     checkAuth(Role.CUSTOMER),
-    OrderController.createOrder
+    OrderController.createOrderWithPayment
 );
+
+router.post(
+    "/pay-later",
+    checkAuth(Role.CUSTOMER),
+    OrderController.createOrderWithPayLater
+);
+
+router.post(
+    "/:id/initiate-payment",
+    checkAuth(Role.CUSTOMER),
+    OrderController.initiatePayment
+)
 
 router.get(
     "/my-orders",
@@ -24,6 +36,7 @@ router.get(
     checkAuth(Role.CUSTOMER),
     OrderController.getSingleOrder
 );
+
 
 router.get(
     "/all/all-orders",

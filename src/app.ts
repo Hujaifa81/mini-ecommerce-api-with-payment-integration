@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { raw } from "express";
-// import { PaymentController } from "./app/modules/payment/payment.controller";
+import { PaymentController } from "./app/modules/payment/payment.controller";
 import passport from "passport";
 import "./config/passport";
 import expressSession from "express-session";
@@ -18,13 +18,9 @@ const app = express();
 
 // web-hook api
 app.use(
-    "/webhook",
+    "/api/v1/payment/webhook",
     raw({ type: "application/json" }),
-    (req, res, next) => {
-        (req as any).rawBody = req.body;
-        next();
-    },
-    //   PaymentController.stripeWebhookHandler
+    PaymentController.handleStripeWebhook
 );
 
 // general api
