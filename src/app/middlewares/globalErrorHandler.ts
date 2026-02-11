@@ -4,7 +4,7 @@
 import { NextFunction, Request, Response } from "express";
 import httpStatus from "http-status";
 import { ZodError } from "zod";
-import { Prisma } from "../../../generated/prisma/client.js";
+import { Prisma } from "../../../generated/prisma/client";
 
 
 // // Sanitize error to prevent exposing sensitive information in production

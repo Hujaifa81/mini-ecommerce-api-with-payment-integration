@@ -2,7 +2,6 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-// import router from "./app/router.ts";
 import { raw } from "express";
 // import { PaymentController } from "./app/modules/payment/payment.controller";
 import passport from "passport";
@@ -13,6 +12,7 @@ import { rootResponse } from "./shared/common/rootResponse";
 import { corsOptions } from "./shared/common/corsOptions";
 import { globalErrorHandler } from "./app/middlewares/globalErrorHandler";
 import notFound from "./app/middlewares/notFound";
+import router from "./app/router";
 
 const app = express();
 
@@ -45,7 +45,7 @@ app.use(passport.session());
 app.set("trust proxy", 1);
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
-// app.use("/api/v1", router);
+app.use("/api/v1", router);
 app.use(notFound);
 app.use(globalErrorHandler);
 
