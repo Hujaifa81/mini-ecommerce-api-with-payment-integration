@@ -1,0 +1,17 @@
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role     @default(CUSTOMER)
+  isDeleted Boolean  @default(false)
+  authProviders AuthProviderType[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+  cart   Cart?
+
+  @@index([email])
+  @@map("users")
+}
