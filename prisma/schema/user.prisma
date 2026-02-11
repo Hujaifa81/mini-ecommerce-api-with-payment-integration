@@ -5,7 +5,7 @@ model User {
   name      String?
   role      Role     @default(CUSTOMER)
   isDeleted Boolean  @default(false)
-  authProviders AuthProviderType[]
+  authProviders AuthProvider[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

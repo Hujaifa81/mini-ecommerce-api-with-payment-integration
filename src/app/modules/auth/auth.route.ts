@@ -8,9 +8,11 @@ import {
   changePasswordZodSchema,
 } from "./auth.validation";
 import validateRequest from "../../middlewares/validateRequest";
+import { createUserZodSchema } from "../user/user.validation";
 
 const router = Router();
 
+router.post("/", validateRequest(createUserZodSchema), AuthController.registerUser);
 router.post("/login", validateRequest(loginZodSchema), AuthController.credentialsLogin);
 router.post("/refresh-token", AuthController.getNewAccessToken);
 router.post("/logout", AuthController.logout);

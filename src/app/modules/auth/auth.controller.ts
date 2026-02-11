@@ -14,6 +14,16 @@ import ENV from "../../../config/env";
 import { IJWTPayload } from "../../../interface/declare/index";
 
 
+const registerUser = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+  const result = await AuthService.registerUser(req.body);
+  sendResponse(res, {
+    statusCode: httpStatus.CREATED,
+    success: true,
+    message: "User created successfully.",
+    data: result,
+  });
+});
+
 const credentialsLogin = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
   passport.authenticate("local", async (err: any, user: any, info: any) => {
     if (err) {
@@ -122,6 +132,7 @@ const logout = catchAsync(async (req: Request, res: Response, next: NextFunction
 
 
 export const AuthController = {
+  registerUser,
   credentialsLogin,
   googleCallbackController,
   getNewAccessToken,
