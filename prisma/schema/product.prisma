@@ -1,6 +1,6 @@
 model Product {
   id          String   @id @default(uuid())
-  name        String
+  name        String   @unique
   description String?
   price       Decimal  @db.Decimal(10, 2)
   stock       Int      @default(0)

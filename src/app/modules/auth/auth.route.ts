@@ -6,9 +6,9 @@ import { Role } from "../../../../generated/prisma/enums";
 import {
   loginZodSchema,
   changePasswordZodSchema,
+  createUserZodSchema,
 } from "./auth.validation";
 import validateRequest from "../../middlewares/validateRequest";
-import { createUserZodSchema } from "../user/user.validation";
 
 const router = Router();
 
