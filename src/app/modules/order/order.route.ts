@@ -4,23 +4,27 @@ import { Role } from "../../../../generated/prisma/enums";
 import validateRequest from "../../middlewares/validateRequest";
 import { OrderController } from "./order.controller";
 import { OrderValidation } from "./order.validation";
+import { paymentLimiter } from "../../middlewares/rateLimiter";
 
 const router = Router();
 
 router.post(
     "/",
+    paymentLimiter,
     checkAuth(Role.CUSTOMER),
     OrderController.createOrderWithPayment
 );
 
 router.post(
     "/pay-later",
+    paymentLimiter,
     checkAuth(Role.CUSTOMER),
     OrderController.createOrderWithPayLater
 );
 
 router.post(
     "/:id/initiate-payment",
+    paymentLimiter,
     checkAuth(Role.CUSTOMER),
     OrderController.initiatePayment
 )
@@ -53,7 +57,7 @@ router.patch(
 
 router.patch(
     "/:id/cancel",
-    checkAuth(Role.ADMIN),
+    checkAuth(Role.CUSTOMER, Role.ADMIN),
     OrderController.cancelOrder
 );
 

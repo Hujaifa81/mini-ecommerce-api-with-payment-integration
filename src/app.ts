@@ -12,9 +12,13 @@ import { rootResponse } from "./shared/common/rootResponse";
 import { corsOptions } from "./shared/common/corsOptions";
 import { globalErrorHandler } from "./app/middlewares/globalErrorHandler";
 import notFound from "./app/middlewares/notFound";
+import { apiLimiter } from "./app/middlewares/rateLimiter";
 import router from "./app/router";
 
 const app = express();
+
+// global api rate limiting
+app.use("/api/v1", apiLimiter);
 
 // web-hook api
 app.use(
@@ -35,7 +39,6 @@ app.use(
         saveUninitialized: false,
     })
 );
-// Ensure passport strategies are registered before initializing passport
 app.use(passport.initialize());
 app.use(passport.session());
 app.set("trust proxy", 1);

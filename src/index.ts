@@ -1,10 +1,12 @@
 import ServerCreator from "./server";
+import { initCronJobs } from "./worker";
 
 const server = new ServerCreator();
 
 (async () => {
     try {
         await server.init();
+        initCronJobs();
     } catch (error) {
         console.error("Failed to start server:", error);
         await server.shutdown();

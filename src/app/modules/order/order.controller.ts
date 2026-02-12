@@ -85,8 +85,9 @@ const updateOrderStatus = catchAsync(async (req: Request, res: Response) => {
 });
 
 const cancelOrder = catchAsync(async (req: Request, res: Response) => {
+    const user = req.user as IJWTPayload;
     const { id } = req.params;
-    const result = await OrderService.cancelOrder(id as string);
+    const result = await OrderService.cancelOrder(id as string, user.userId, user.role);
     sendResponse(res, {
         statusCode: httpStatus.OK,
         success: true,

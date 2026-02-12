@@ -9,11 +9,12 @@ import {
   createUserZodSchema,
 } from "./auth.validation";
 import validateRequest from "../../middlewares/validateRequest";
+import { authLimiter } from "../../middlewares/rateLimiter";
 
 const router = Router();
 
-router.post("/", validateRequest(createUserZodSchema), AuthController.registerUser);
-router.post("/login", validateRequest(loginZodSchema), AuthController.credentialsLogin);
+router.post("/", authLimiter, validateRequest(createUserZodSchema), AuthController.registerUser);
+router.post("/login", authLimiter, validateRequest(loginZodSchema), AuthController.credentialsLogin);
 router.post("/refresh-token", AuthController.getNewAccessToken);
 router.post("/logout", AuthController.logout);
 router.post(

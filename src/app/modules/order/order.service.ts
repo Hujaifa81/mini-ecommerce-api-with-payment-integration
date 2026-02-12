@@ -2,7 +2,7 @@ import httpStatus from "http-status-codes";
 import { Prisma } from "../../../../generated/prisma/client";
 import ApiError from "../../errors/ApiError";
 import { prisma } from "../../../lib/prisma";
-import { OrderStatus, PaymentStatus } from "../../../../generated/prisma/enums";
+import { OrderStatus, PaymentStatus, Role } from "../../../../generated/prisma/enums";
 import { PaymentService } from "../payment/payment.service";
 
 const createBaseOrder = async (tx: Prisma.TransactionClient, userId: string) => {
@@ -19,6 +19,22 @@ const createBaseOrder = async (tx: Prisma.TransactionClient, userId: string) => 
 
     if (!cart || cart.items.length === 0) {
         throw new ApiError(httpStatus.BAD_REQUEST, "Your cart is empty");
+    }
+
+    // 1. Anti-Fraud: Limit the number of concurrent PENDING orders to prevent stock "jailing"
+    // (If a user has too many unpaid/undelivered orders, they shouldn't lock up more stock)
+    const pendingOrderCount = await tx.order.count({
+        where: {
+            userId,
+            status: OrderStatus.PENDING,
+        },
+    });
+
+    if (pendingOrderCount >= 5) {
+        throw new ApiError(
+            httpStatus.TOO_MANY_REQUESTS,
+            "You have too many pending orders. Please complete your existing payments or wait for fulfillment before placing new orders."
+        );
     }
 
     const productIds = cart.items.map((item: { productId: string }) => item.productId);
@@ -163,8 +179,6 @@ const initiatePayment = async (userId: string, userEmail: string, orderId: strin
     return { paymentUrl };
 };
 
-
-
 const getMyOrders = async (userId: string) => {
     return await prisma.order.findMany({
         where: { userId },
@@ -234,22 +248,60 @@ const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
     });
 };
 
-const cancelOrder = async (orderId: string) => {
+const cancelOrder = async (orderId: string, userId: string, userRole: Role) => {
     return await prisma.$transaction(async (tx) => {
         const order = await tx.order.findUnique({
             where: { id: orderId },
-            include: { items: true },
+            include: { items: true, payment: true },
         });
 
         if (!order) {
             throw new ApiError(httpStatus.NOT_FOUND, "Order not found");
         }
 
+        // 1. Ownership Check: Customers can only cancel their own orders
+        if (userRole === Role.CUSTOMER && order.userId !== userId) {
+            throw new ApiError(httpStatus.FORBIDDEN, "You are not authorized to cancel this order");
+        }
+
+        // 2. Status Restriction: Only allow cancellation if not delivered or already cancelled
         if (order.status === OrderStatus.CANCELLED || order.status === OrderStatus.DELIVERED) {
             throw new ApiError(
                 httpStatus.BAD_REQUEST,
                 "Order cannot be cancelled in its current state"
             );
+        }
+
+        // 3. Payment Protection: Customers cannot cancel if payment is already COMPLETED
+        // (If paid, they must contact Admin for a refund flow)
+        if (userRole === Role.CUSTOMER && order.payment?.status === PaymentStatus.COMPLETED) {
+            throw new ApiError(
+                httpStatus.BAD_REQUEST,
+                "Paid orders cannot be cancelled by customers. Please contact support."
+            );
+        }
+
+        // 4. Rate Limiting: Prevent "cancellation spam" (Max 3 cancellations per day for customers)
+        if (userRole === Role.CUSTOMER) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const cancellationCount = await tx.order.count({
+                where: {
+                    userId,
+                    status: OrderStatus.CANCELLED,
+                    updatedAt: {
+                        gte: today,
+                    },
+                },
+            });
+
+            if (cancellationCount >= 3) {
+                throw new ApiError(
+                    httpStatus.TOO_MANY_REQUESTS,
+                    "Daily cancellation limit reached. Please contact support for further assistance."
+                );
+            }
         }
 
         const result = await tx.order.update({
@@ -272,6 +324,58 @@ const cancelOrder = async (orderId: string) => {
     });
 };
 
+const cancelExpiredOrders = async () => {
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+
+    const expiredOrders = await prisma.order.findMany({
+        where: {
+            status: OrderStatus.PENDING,
+            createdAt: {
+                lt: thirtyMinutesAgo,
+            },
+        },
+        include: {
+            items: true,
+            payment: true,
+        },
+    });
+
+    if (expiredOrders.length === 0) {
+        return;
+    }
+
+    console.log(`[Cron] Found ${expiredOrders.length} expired orders. Processing...`);
+
+    for (const order of expiredOrders) {
+        if (order.payment?.status === PaymentStatus.COMPLETED) {
+            continue;
+        }
+
+        try {
+            await prisma.$transaction(async (tx) => {
+                await tx.order.update({
+                    where: { id: order.id },
+                    data: { status: OrderStatus.CANCELLED },
+                });
+
+                for (const item of order.items) {
+                    await tx.product.update({
+                        where: { id: item.productId },
+                        data: {
+                            stock: {
+                                increment: item.quantity,
+                            },
+                        },
+                    });
+                }
+            });
+            console.log(`[Cron] Order ${order.id} automatically cancelled due to payment expiry.`);
+        } catch (error) {
+            console.error(`[Cron] Failed to cancel order ${order.id}:`, error);
+        }
+    }
+};
+
 export const OrderService = {
     createOrderWithPayment,
     createOrderWithPayLater,
@@ -281,4 +385,5 @@ export const OrderService = {
     getAllOrders,
     updateOrderStatus,
     cancelOrder,
+    cancelExpiredOrders,
 };
