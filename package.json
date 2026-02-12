@@ -8,10 +8,11 @@
   "scripts": {
     "build": "tsc",
     "postinstall": "npm run db:generate",
-    "build:render": "npm install --include=dev && npm db:generate && npm run build",
+    "build:render": "npm install --include=dev && npm run db:generate && npm run build",
     "dev": "npx tsx watch ./src/index.ts",
     "dev:all": "npm run dev",
     "start": "node ./dist/src/index.js",
+    "worker:prod": "node ./dist/src/index.js",
     "lint": "npx eslint ./src",
     "lint:fix": "npx eslint ./src --fix",
     "format": "prettier --write .",
