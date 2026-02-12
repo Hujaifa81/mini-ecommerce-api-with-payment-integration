@@ -3,6 +3,8 @@ import { stripe } from "../../../lib/stripe";
 import ENV from "../../../config/env";
 import { prisma } from "../../../lib/prisma";
 import { PaymentStatus } from "../../../../generated/prisma/enums";
+import { ApiError } from "../../errors";
+import httpStatus from "http-status-codes";
 
 const createPaymentSession = async (orderData: {
     id: string;
@@ -20,7 +22,7 @@ const createPaymentSession = async (orderData: {
                     product_data: {
                         name: `Order #${orderData.id}`,
                     },
-                    unit_amount: Math.round(orderData.totalAmount * 100), // Stripe expects cents
+                    unit_amount: Math.round(orderData.totalAmount * 100),
                 },
                 quantity: 1,
             },
@@ -62,7 +64,7 @@ const handleStripeWebhookEvent = async (sig: string, rawBody: Buffer) => {
                 });
 
                 if (!payment) {
-                    throw new Error(`Payment record for order ${orderId} not found`);
+                    throw new ApiError(httpStatus.NOT_FOUND, `Payment record for order ${orderId} not found`);
                 }
 
                 if (payment.status === PaymentStatus.COMPLETED) {
