@@ -18,7 +18,7 @@ const addToCart = catchAsync(async (req: Request, res: Response) => {
 
 const getMyCart = catchAsync(async (req: Request, res: Response) => {
     const user = req.user as IJWTPayload;
-    const result = await CartService.getMyCart(user.id);
+    const result = await CartService.getMyCart(user.userId);
     sendResponse(res, {
         statusCode: httpStatus.OK,
         success: true,

@@ -1,11 +1,14 @@
 
 import httpStatus from "http-status";
 import { generateToken, verifyToken } from "../helper/jwtHelper";
-import { User } from "../../../generated/prisma/client";
 import { IJWTPayload } from "../../interface/declare/index";
 import ENV from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import ApiError from "../../app/errors/ApiError";
+import { User } from "../../../generated/prisma/client";
+
+
+
 
 
 export const createUserTokens = (user: Partial<User>) => {
