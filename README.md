@@ -18,7 +18,7 @@ All API endpoints follow this base structure:
 
 For example:
 Product Routes:
-https://mini-ecommerce-api-with-payment.onrender.com/api/v1/products
+https://mini-ecommerce-api-with-payment.onrender.com/api/v1/product
 
 ---
 
