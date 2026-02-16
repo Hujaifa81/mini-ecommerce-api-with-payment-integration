@@ -9,6 +9,18 @@ A comprehensive and secure backend system for a mini e-commerce platform. Built 
 
 ---
 
+## API Route Format
+
+All API endpoints follow this base structure:
+
+https://mini-ecommerce-api-with-payment.onrender.com/api/v1/<resource>
+
+For example:
+Product Routes:
+https://mini-ecommerce-api-with-payment.onrender.com/api/v1/products
+
+---
+
 ## 🔐 Test Credentials
 
 | Role | Email | Password |
@@ -147,7 +159,6 @@ STRIPE_WEBHOOK_SECRET="whsec_..."
 ```bash
 npx prisma generate
 npx prisma migrate dev
-npm run db:seed
 ```
 
 ### 5. Running the App
