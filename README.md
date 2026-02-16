@@ -11,9 +11,10 @@ A comprehensive and secure backend system for a mini e-commerce platform. Built 
 
 ## API Route Format
 
+
 All API endpoints follow this base structure:
 
-https://mini-ecommerce-api-with-payment.onrender.com/api/v1/<resource>
+`https://mini-ecommerce-api-with-payment.onrender.com/api/v1/<resource>`
 
 For example:
 Product Routes:
